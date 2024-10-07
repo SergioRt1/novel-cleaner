@@ -1,0 +1,6 @@
+saved_model
+results
+venv
+result_predictions
+*/__pycache__
+data/training_data.csv
