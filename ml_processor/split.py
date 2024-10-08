@@ -1,7 +1,6 @@
 import re
 
 
-
 def split_into_sentences(text):
     # Regex to capture sentences along with their separators
     pattern = re.compile(r'(.*?)(\. |\n|\! |\” |\? |\" |\* |\] |』 )')

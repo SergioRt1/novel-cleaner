@@ -1,6 +1,7 @@
 import random
 import pandas as pd
-from utils import split_into_sentences
+
+from .split import split_into_sentences
 
 
 
@@ -19,7 +20,7 @@ def save_dataset(data, save_path):
     else:
         print("No data to save!")
 
-def buil_training_data(novel_file_path = "data/novel.txt", non_novel_file_path = "data/non-novel.txt", save_path = "data/training_data.csv"):
+def build_training_data(novel_file_path = "ml_data/novel-like.txt", non_novel_file_path = "ml_data/non-novel.txt", save_path = "ml_data/training_data.csv"):
     novel_data = read_and_label_file(novel_file_path, label=0)
     non_novel_data = read_and_label_file(non_novel_file_path, label=1)
 
@@ -29,4 +30,4 @@ def buil_training_data(novel_file_path = "data/novel.txt", non_novel_file_path =
     save_dataset(combined_data, save_path)
 
 if __name__ == "__main__":
-    buil_training_data()
+    build_training_data()

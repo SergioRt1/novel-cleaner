@@ -3,7 +3,7 @@ datasets==3.0.1
 pandas==2.2.3
 torch==2.6.0.dev20241005+rocm6.2
 tqdm==4.66.5
-transformers==4.45.1
+transformers[torch]==4.45.1
 
 
 accelerate==0.34.2

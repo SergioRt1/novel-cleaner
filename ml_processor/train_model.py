@@ -1,3 +1,4 @@
+import torch
 import pandas as pd
 from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
 from datasets import Dataset
@@ -58,13 +59,15 @@ def save_model_and_tokenizer(model, tokenizer, output_dir="./saved_model"):
     tokenizer.save_pretrained(output_dir)
 
 
-def train():
+def train(csv_file_path = "ml_data/training_data.csv"):
+    print('GPU acceleration: ', torch.cuda.is_available())  # Should return True if CUDA/ROCm is properly configured.
+    print('GPU device is: ', torch.cuda.get_device_name())
+
     # Load pre-trained model and tokenizer
     model_name = "bert-base-uncased"
     model, tokenizer = load_model_and_tokenizer(model_name)
 
     # Load and tokenize the dataset
-    csv_file_path = "data/training_data.csv"
     dataset = load_dataset(csv_file_path)
     tokenized_dataset = tokenize_dataset(dataset, tokenizer)
 

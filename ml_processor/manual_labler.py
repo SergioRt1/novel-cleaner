@@ -3,7 +3,7 @@ import pandas as pd
 
 from tkinter import filedialog
 
-from  utils import split_into_sentences
+from  .split import split_into_sentences
 
 
 class LabelingApp:

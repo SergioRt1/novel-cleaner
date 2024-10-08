@@ -1,32 +1,38 @@
 import torch
-from transformers import BertTokenizer, BertForSequenceClassification
+import torch.nn.functional as F
+import os
+import time
 import pandas as pd
-
 from tqdm import tqdm
+from transformers import BertTokenizer, BertForSequenceClassification
+
 from tkinter import filedialog
 
-import os
 
-from utils import split_into_sentences
+from .split import split_into_sentences
 
-# Load the saved model and tokenizer
-model_path = "./saved_model" 
-model = BertForSequenceClassification.from_pretrained(model_path)
-tokenizer = BertTokenizer.from_pretrained(model_path)
+def load_model():
+    print('GPU acceleration: ', torch.cuda.is_available())  # Should return True if CUDA/ROCm is properly configured.
+    print('GPU device is: ', torch.cuda.get_device_name())
 
-# Ensure the model is in evaluation mode
-model.eval()
-model.to('cuda')
+    # Load the saved model and tokenizer
+    model_path = "./saved_model" 
+    model = BertForSequenceClassification.from_pretrained(model_path)
+    tokenizer = BertTokenizer.from_pretrained(model_path)
+
+    # Ensure the model is in evaluation mode
+    model.eval()
+    model.to('cuda')
+
+    return model, tokenizer
 
 results_folder = "./results_prediction"
 
 # Function to batch evaluate the sentences
-def evaluate_novel(novel_text, batch_size=8):
-    
+def evaluate_novel(novel_text, model, tokenizer, batch_size=16):
     sentences = split_into_sentences(novel_text)
-    print(f"Novel Split in {len(sentences)}")
-    
-    print("Starting evaluation process:")
+    print(f"Text split in {len(sentences)} sentences")
+
     results = []
     for i in tqdm(range(0, len(sentences), batch_size), desc="Evaluating Sentences"):
    
@@ -42,8 +48,17 @@ def evaluate_novel(novel_text, batch_size=8):
         
 
         logits = outputs.logits
-        predictions = torch.argmax(logits, dim=-1).tolist()
-        batch_results = list(zip(batch, predictions))
+        
+        # Calculate probabilities using softmax
+        probs = F.softmax(logits, dim=-1)
+        prediction_certainties, predictions = torch.max(probs, dim=-1)
+
+        # Convert to lists
+        predictions = predictions.tolist()
+        prediction_certainties = prediction_certainties.tolist()
+
+        # Append sentence, prediction, and certainty for each sentence in the batch
+        batch_results = list(zip(batch, predictions, prediction_certainties))
         results.extend(batch_results)
     
     return results
@@ -63,8 +78,6 @@ def save_results_to_csv(df, base_filename):
     df.to_csv(save_path, index=False)
     print(f"Results saved to {save_path}")
 
-import os
-
 # Function to manually review and filter the novel content
 def save_filtered_novel(df, original_text, base_filename, modification_handler):
     filtered_sentences = []
@@ -73,10 +86,11 @@ def save_filtered_novel(df, original_text, base_filename, modification_handler):
     for index, row in df.iterrows():
         sentence = row['Sentence']
         prediction = row['Prediction']
+        certainty = row['Certainty']
         
         # If the sentence is flagged as non-novel content, review it
         if prediction == 1:
-            edited_sentence, keep = modification_handler(sentence)
+            edited_sentence, keep = modification_handler(sentence, certainty)
             if keep:
                 filtered_sentences.append(edited_sentence)
         else:
@@ -96,9 +110,13 @@ def save_filtered_novel(df, original_text, base_filename, modification_handler):
     print(f"Filtered novel saved to {filtered_novel_path}")
 
 # Function to handle CLI interactions
-def modification_handler_cli(sentence):
-    print(f"Flagged as non-novel content:\n{sentence}")
+def modification_handler_cli(sentence, certainty):
+    print(f"Flagged as non-novel content ({certainty:.4%}):\n{sentence}")
     action = input("Choose action - (k)eep, (e)dit, (r)emove (any other): ").strip().lower()
+
+    lines_printed = 2
+    for i in range(lines_printed):
+        print("\033[A\r\033[K", end='')
 
     if action == 'k':
         # Keep the sentence
@@ -106,19 +124,32 @@ def modification_handler_cli(sentence):
     elif action == 'e':
         # Edit the sentence
         edited_sentence = input("Edit the sentence: ").strip()
+        print("\033[A\r\033[K", end='')
         return edited_sentence, True
     # If 'r' or other, the sentence will be removed
     return "", False
 
-def prediction(novel_text, base_filename, modification_handler):
-    if novel_text:
-        evaluated_results = evaluate_novel(novel_text, 16)
-        df = pd.DataFrame(evaluated_results, columns=["Sentence", "Prediction"])
+def modification_handler_remove_all(sentence, certainty):
+    cleaned_sentence = sentence.replace("\n", " ")
+    print(f'Flagged {certainty:.4%}:{cleaned_sentence}')
+    time.sleep(0.2)
 
-        save_results_to_csv(df, base_filename)
-        save_filtered_novel(df, novel_text, base_filename, modification_handler)
+    print("\033[A\r\033[K", end='')
+    # The sentence will be removed
+    return "", False
+
+# Function to predict and return a DataFrame with predictions and certainties
+def predict(model, tokenizer, novel_text: str):
+    if novel_text:
+        evaluated_results = evaluate_novel(novel_text, model, tokenizer)
+        
+        # Convert results to DataFrame, including certainty scores
+        df = pd.DataFrame(evaluated_results, columns=["Sentence", "Prediction", "Certainty"])
+        
+        return df
     else:
         print("No file selected or file is empty.")
+        return None
 
 # Main execution: reading the novel from a file and evaluating it
 if __name__ == "__main__":
@@ -127,4 +158,8 @@ if __name__ == "__main__":
     novel_text, base_filename = read_novel_from_file()
     print("Novel loaded")
 
-    prediction(novel_text, base_filename, modification_handler_cli)
+    model, tokenizer = load_model()
+    df = predict(model, tokenizer, novel_text)
+
+    save_results_to_csv(df, base_filename)
+    save_filtered_novel(df, novel_text, base_filename, modification_handler_remove_all)

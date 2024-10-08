@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug ml_processor",
+            "type": "python",
+            "request": "launch",
+            "module": "ml_processor.prediction",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/venv/bin/python3.11",
+            "justMyCode": false
+        }
+    ]
+}

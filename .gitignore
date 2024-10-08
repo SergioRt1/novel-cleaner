@@ -1,6 +1,8 @@
 saved_model
 results
 venv
-result_predictions
+results_prediction
 */__pycache__
-data/training_data.csv
+ml_data/training_data.csv
+ml_processor.egg-info
+build
