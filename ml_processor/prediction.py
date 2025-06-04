@@ -34,7 +34,7 @@ def evaluate_novel(novel_text, model, tokenizer, batch_size=16):
     print(f"Text split in {len(sentences)} sentences")
 
     results = []
-    for i in tqdm(range(0, len(sentences), batch_size), desc="Evaluating Sentences"):
+    for i in tqdm(range(0, len(sentences), batch_size), desc="Evaluating Sentences", leave=False, position=1):
    
         batch = sentences[i:i+batch_size]
         
